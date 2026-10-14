@@ -1,9 +1,18 @@
 import sys
-from cell import Maze
+from MazeGenerator import Maze
 
-def load_config(filename: str) -> dict:
+
+def parse_coordinate(value: str) -> tuple[int, int]:
+    parts = value.split(",")
+
+    if len(parts) != 2:
+        raise ValueError("Coordinate must have format x,y")
+
+    return (int(parts[0]), int(parts[1]))
+
+
+def load_config(filename: str) -> dict[str, str]:
     config = {}
-
 
     with open(filename, "r") as file:
         for line in file:
@@ -18,7 +27,7 @@ def load_config(filename: str) -> dict:
     return config
 
 
-def validate_config(config: dict) -> None:
+def validate_config(config: dict[str, str]) -> None:
     required_keys = [
         "WIDTH",
         "HEIGHT",
@@ -42,8 +51,8 @@ def validate_config(config: dict) -> None:
     if height <= 0:
         raise ValueError("HEIGHT must be greater than 0")
 
-    entry = tuple(map(int, config["ENTRY"].split(",")))
-    exit = tuple(map(int, config["EXIT"].split(",")))
+    entry = parse_coordinate(config["ENTRY"])
+    exit = parse_coordinate(config["EXIT"])
 
     if len(entry) != 2 or len(exit) != 2:
         raise ValueError("ENTRY and EXIT must have format x,y")
@@ -58,7 +67,7 @@ def validate_config(config: dict) -> None:
         raise ValueError("ENTRY and EXIT must be different")
 
 
-def main():
+def main() -> None:
     if len(sys.argv) != 2:
         print("Usage: python3 a_maze_ing.py config.txt")
         return
@@ -71,31 +80,22 @@ def main():
 
         width = int(config["WIDTH"])
         height = int(config["HEIGHT"])
-        entry = tuple(map(int, config["ENTRY"].split(",")))
-        exit = tuple(map(int, config["EXIT"].split(",")))
+        entry = parse_coordinate(config["ENTRY"])
+        exit = parse_coordinate(config["EXIT"])
         output_file = config["OUTPUT_FILE"]
         perfect = config["PERFECT"].lower() == "true"
         seed = int(config["SEED"])
 
         print("Configuration is valid")
         print(config)
+        maze = Maze(width, height, entry, exit)
+        maze.generate_perfect(seed)
+        maze.print_maze()
 
     except FileNotFoundError:
         print(f"Error: file '{config_file}' not found")
     except ValueError as e:
         print(f"Error: {e}")
-
-    maze = Maze(width, height)
-    maze.remove_wall(5, 5, 6, 5)  # вправо
-    maze.remove_wall(5, 5, 4, 5)  # влево
-    maze.remove_wall(5, 5, 5, 4)  # вверх
-    maze.remove_wall(5, 5, 5, 6)  # вниз
-    cell = maze.grid[5][5]
-
-    print(cell.north)
-    print(cell.east)
-    print(cell.south)
-    print(cell.west)
 
 
 if __name__ == "__main__":
