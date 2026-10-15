@@ -8,4 +8,4 @@ OUTPUT_FILE=maze.txt
 
 PERFECT=True
 
-SEED=42
+SEED=1

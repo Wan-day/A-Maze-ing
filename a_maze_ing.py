@@ -86,11 +86,11 @@ def main() -> None:
         perfect = config["PERFECT"].lower() == "true"
         seed = int(config["SEED"])
 
-        print("Configuration is valid")
-        print(config)
         maze = Maze(width, height, entry, exit)
         maze.generate_perfect(seed)
-        maze.print_maze()
+        path = maze.find_path()
+        print("Path:", path)
+        maze.print_maze(path)
 
     except FileNotFoundError:
         print(f"Error: file '{config_file}' not found")
