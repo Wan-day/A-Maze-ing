@@ -136,8 +136,9 @@ class Maze:
                 neighbors.append((nx, ny))
         return neighbors
 
-    def generate_perfect(self, seed: int) -> None:
-        random.seed(seed)
+    def generate_perfect(self, seed: int | None = None) -> None:
+        if seed is not None:
+            random.seed(seed)
         x, y = self.entry
         stack = [(x, y)]
         self.grid[y][x].visited = True
