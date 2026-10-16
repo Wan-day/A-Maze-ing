@@ -164,7 +164,6 @@ def main() -> None:
         path = maze.find_path()
         print("Path:", path)
         maze.print_maze(path)
-
     except ConfigError as e:
         print(f"Configuration Error: {e}")
     except FileNotFoundError:
