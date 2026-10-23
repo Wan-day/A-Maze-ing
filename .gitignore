@@ -1,2 +1,4 @@
 venv/
 pyrightconfig.json
+.mypy_cache
+__pycache__
