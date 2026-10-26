@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import TypedDict
 from MazeGenerator import Maze
@@ -193,8 +194,37 @@ def validate_config(config: dict[str, str]) -> Config:
     return validated_config
 
 
+def build_maze(config: Config, seed: int | None) -> tuple[Maze, list[
+        tuple[int, int]]]:
+    """Generate a maze from the configuration and write the output file.
+
+    Args:
+        config: Validated configuration.
+        seed: Seed for reproducible generation, or None for a fresh maze.
+
+    Returns:
+        The generated maze and its solution path.
+    """
+    maze = Maze(
+        config["WIDTH"],
+        config["HEIGHT"],
+        config["ENTRY"],
+        config["EXIT"],
+    )
+    if config["PERFECT"]:
+        maze.generate_perfect(seed)
+    else:
+        maze.generate_imperfect(seed)
+    path = maze.find_path()
+    out_dir = os.path.dirname(config["OUTPUT_FILE"])
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    maze.write_output(config["OUTPUT_FILE"], path)
+    return maze, path
+
+
 def main() -> None:
-    """Load configuration, generate the maze, and write the result."""
+    """Load configuration, generate the maze, write and display the result."""
     if len(sys.argv) != 2:
         print("Usage: python3 a_maze_ing.py config.txt")
         return
@@ -202,19 +232,20 @@ def main() -> None:
     try:
         raw_config = load_config(config_file)
         config = validate_config(raw_config)
-        maze = Maze(
-            config["WIDTH"],
-            config["HEIGHT"],
-            config["ENTRY"],
-            config["EXIT"],
-        )
-        if config["PERFECT"]:
-            maze.generate_perfect(config["SEED"])
-        else:
-            maze.generate_imperfect(config["SEED"])
-        path = maze.find_path()
-        maze.write_output(config["OUTPUT_FILE"], path)
+        maze, path = build_maze(config, config["SEED"])
         maze.print_maze(path)
+
+        def regenerate() -> None:
+            """Called by the renderer on SPACE: new random maze, same file."""
+            build_maze(config, None)
+
+        try:
+            from renderer import MazeRenderer
+        except ImportError as e:
+            print(f"Graphical display unavailable ({e}); "
+                  f"maze written to '{config['OUTPUT_FILE']}'.")
+            return
+        MazeRenderer(config, regenerate).draw_maze()
     except ConfigError as e:
         print(f"Configuration Error: {e}")
     except FileNotFoundError:
