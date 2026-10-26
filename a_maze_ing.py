@@ -1,9 +1,11 @@
 import sys
 from typing import TypedDict
 from MazeGenerator import Maze
+from errors import ConfigError
 
 
 class Config(TypedDict):
+    """Store the validated maze configuration values."""
     WIDTH: int
     HEIGHT: int
     ENTRY: tuple[int, int]
@@ -13,14 +15,20 @@ class Config(TypedDict):
     SEED: int | None
 
 
-class ConfigError(Exception):
-    """Custom exception for configuration errors."""
-    pass
-
-
 def parse_coordinate(value: str, key: str) -> tuple[int, int]:
-    parts = value.split(",")
+    """Parse a coordinate string in the form "x,y".
 
+    Args:
+        value: Coordinate string to parse.
+        key: Configuration key used in error messages.
+
+    Returns:
+        A tuple containing the x and y coordinates.
+
+    Raises:
+        ConfigError: If the coordinate format or values are invalid.
+    """
+    parts = value.split(",")
     if len(parts) != 2:
         raise ConfigError(
             f"{key}: invalid coordinate format '{value}', expected 'x,y'"
@@ -36,6 +44,18 @@ def parse_coordinate(value: str, key: str) -> tuple[int, int]:
 
 
 def parse_int(config: dict[str, str], key: str) -> int:
+    """Parse an integer value from the configuration.
+
+    Args:
+        config: Raw configuration dictionary.
+        key: Configuration key containing the integer value.
+
+    Returns:
+        The parsed integer.
+
+    Raises:
+        ConfigError: If the key is missing or its value is not an integer.
+    """
     try:
         return int(config[key])
     except (KeyError, ValueError):
@@ -45,6 +65,18 @@ def parse_int(config: dict[str, str], key: str) -> int:
 
 
 def parse_bool(config: dict[str, str], key: str) -> bool:
+    """Parse a boolean value from the configuration.
+
+    Args:
+        config: Raw configuration dictionary.
+        key: Configuration key containing the boolean value.
+
+    Returns:
+        True for "true" and False for "false".
+
+    Raises:
+        ConfigError: If the value is not "true" or "false".
+    """
     value = config[key].lower()
     if value == "true":
         return True
@@ -56,9 +88,21 @@ def parse_bool(config: dict[str, str], key: str) -> bool:
 
 
 def load_config(filename: str) -> dict[str, str]:
+    """Load raw key-value pairs from a configuration file.
+
+    Args:
+        filename: Path to the configuration file.
+
+    Returns:
+        A dictionary containing the configuration values as strings.
+
+    Raises:
+        ConfigError: If a configuration line has invalid syntax or
+            contains a duplicate key.
+        OSError: If the configuration file cannot be opened or read.
+    """
     config = {}
     line_num = 0
-
     with open(filename, "r", encoding="utf-8") as file:
         for line in file:
             line_num += 1
@@ -82,6 +126,17 @@ def load_config(filename: str) -> dict[str, str]:
 
 
 def validate_config(config: dict[str, str]) -> Config:
+    """Validate and convert the raw maze configuration.
+
+    Args:
+        config: Raw configuration values loaded from the config file.
+
+    Returns:
+        A validated configuration with correctly typed values.
+
+    Raises:
+        ConfigError: If a required value is missing or invalid.
+    """
     required_keys = [
         "WIDTH",
         "HEIGHT",
@@ -90,18 +145,19 @@ def validate_config(config: dict[str, str]) -> Config:
         "OUTPUT_FILE",
         "PERFECT"
     ]
-    # Check for required keys
     for key in required_keys:
         if key not in config or not config[key]:
             raise ConfigError(f"{key}: missing mandatory configuration key")
-    # Validation and type casting of WIDTH and HEIGHT
     width = parse_int(config, "WIDTH")
-    if width <= 0:
-        raise ConfigError(f"WIDTH: must be greater than 0, got {width}")
+    if width < 9:
+        raise ConfigError(
+            f"WIDTH: must be greater than or equal to 9, got {width}"
+        )
     height = parse_int(config, "HEIGHT")
-    if height <= 0:
-        raise ConfigError(f"HEIGHT: must be greater than 0, got {height}")
-    # Validation and type casting of ENTRY and EXIT coordinates
+    if height < 7:
+        raise ConfigError(
+            f"HEIGHT: must be greater than or equal to 7, got {height}"
+        )
     entry_coord = parse_coordinate(config["ENTRY"], "ENTRY")
     exit_coord = parse_coordinate(config["EXIT"], "EXIT")
     if not (0 <= entry_coord[0] < width and 0 <= entry_coord[1] < height):
@@ -119,15 +175,12 @@ def validate_config(config: dict[str, str]) -> Config:
             f"ENTRY / EXIT: entry {entry_coord} and exit {exit_coord}"
             f" must be different"
         )
-    # Validation and type casting of boolean value
     is_perfect = parse_bool(config, "PERFECT")
-    # Validation and type casting of SEED
     seed = None
     if "SEED" in config:
         if not config["SEED"]:
             raise ConfigError("SEED: value cannot be empty")
         seed = parse_int(config, "SEED")
-    # Build validated configuration
     validated_config: Config = {
         "WIDTH": width,
         "HEIGHT": height,
@@ -137,20 +190,18 @@ def validate_config(config: dict[str, str]) -> Config:
         "PERFECT": is_perfect,
         "SEED": seed,
     }
-    # Return the validated and parsed configuration
     return validated_config
 
 
 def main() -> None:
+    """Load configuration, generate the maze, and write the result."""
     if len(sys.argv) != 2:
         print("Usage: python3 a_maze_ing.py config.txt")
         return
     config_file = sys.argv[1]
     try:
         raw_config = load_config(config_file)
-        print(raw_config)
         config = validate_config(raw_config)
-        print(config)
         maze = Maze(
             config["WIDTH"],
             config["HEIGHT"],
@@ -160,9 +211,9 @@ def main() -> None:
         if config["PERFECT"]:
             maze.generate_perfect(config["SEED"])
         else:
-            maze.generate(config["SEED"])
+            maze.generate_imperfect(config["SEED"])
         path = maze.find_path()
-        print("Path:", path)
+        maze.write_output(config["OUTPUT_FILE"], path)
         maze.print_maze(path)
     except ConfigError as e:
         print(f"Configuration Error: {e}")
