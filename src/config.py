@@ -11,7 +11,8 @@ OS = "LINUX"
 # DO NOT EDIT BELOW THIS LINE
 # =============================================================================
 
-def _key(linux_code, mac_code):
+
+def _key(linux_code: int, mac_code: int) -> int:
     return linux_code if OS == "LINUX" else mac_code
 
 
@@ -21,22 +22,24 @@ def _key(linux_code, mac_code):
 EVENT_KEY_PRESS = 2
 EVENT_KEY_RELEASE = 3
 EVENT_WINDOW_CLOSE = 33  # X button
+EVENT_MOUSE_PRESS = 4    # mouse button pressed
 
 # EVENT MASKS ---------------------------------------------
 # Second argument to mlx_hook - filters which sub-events fire the callback.
-MASK_KEY_PRESS   = 1  # KeyPress:   fire on any key
+MASK_KEY_PRESS = 1  # KeyPress:   fire on any key
 MASK_KEY_RELEASE = 2  # KeyRelease: fire on any key
-MASK_NONE        = 0  # all other events (window close, etc.)
+MASK_NONE = 0  # all other events (window close, etc.)
+MASK_MOUSE_PRESS = 4  # ButtonPress: fire on any mouse button
 
 # CONTROL -------------------------------------------------
-KEY_ESC   = _key(65307, 65307)          # same on both
+KEY_ESC = _key(65307, 65307)          # same on both
 KEY_SPACE = _key(32,    32)             # same on both
 
 # ARROWS --------------------------------------------------
-KEY_LEFT  = _key(65361, 65361)          # same on both
+KEY_LEFT = _key(65361, 65361)          # same on both
 KEY_RIGHT = _key(65363, 65363)          # same on both
-KEY_UP    = _key(65362, 65362)          # same on both
-KEY_DOWN  = _key(65364, 65364)          # same on both
+KEY_UP = _key(65362, 65362)          # same on both
+KEY_DOWN = _key(65364, 65364)          # same on both
 
 # FUNCTION KEYS -------------------------------------------
 KEY_F1 = _key(65470, 65470)             # same on both
@@ -86,21 +89,21 @@ KEY_Z = _key(122, 122)                  # same on both
 
 # NUMPAD --------------------------------------------------
 # All confirmed on Mac via XQuartz. Linux codes assume Num Lock OFF.
-KEY_NUMPAD_0     = _key(65438, 65456)
-KEY_NUMPAD_1     = _key(65436, 65457)
-KEY_NUMPAD_2     = _key(65433, 65458)
-KEY_NUMPAD_3     = _key(65435, 65459)
-KEY_NUMPAD_4     = _key(65430, 65460)
-KEY_NUMPAD_5     = _key(65437, 65461)
-KEY_NUMPAD_6     = _key(65432, 65462)
-KEY_NUMPAD_7     = _key(65429, 65463)
-KEY_NUMPAD_8     = _key(65431, 65464)
-KEY_NUMPAD_9     = _key(65434, 65465)
-KEY_NUMPAD_PLUS  = _key(65451, 65451)  # same on both
+KEY_NUMPAD_0 = _key(65438, 65456)
+KEY_NUMPAD_1 = _key(65436, 65457)
+KEY_NUMPAD_2 = _key(65433, 65458)
+KEY_NUMPAD_3 = _key(65435, 65459)
+KEY_NUMPAD_4 = _key(65430, 65460)
+KEY_NUMPAD_5 = _key(65437, 65461)
+KEY_NUMPAD_6 = _key(65432, 65462)
+KEY_NUMPAD_7 = _key(65429, 65463)
+KEY_NUMPAD_8 = _key(65431, 65464)
+KEY_NUMPAD_9 = _key(65434, 65465)
+KEY_NUMPAD_PLUS = _key(65451, 65451)  # same on both
 KEY_NUMPAD_MINUS = _key(65453, 65453)  # same on both
-KEY_NUMPAD_STAR  = _key(65450, 65450)  # same on both
+KEY_NUMPAD_STAR = _key(65450, 65450)  # same on both
 KEY_NUMPAD_SLASH = _key(65455, 65455)  # same on both
-KEY_NUMPAD_DOT   = _key(65439, 65454)
+KEY_NUMPAD_DOT = _key(65439, 65454)
 KEY_NUMPAD_ENTER = _key(65421, 65421)  # same on both
 
 
@@ -111,25 +114,25 @@ KEY_NUMPAD_ENTER = _key(65421, 65421)  # same on both
 # All values are 0xRRGGBB - written to the buffer in BGR order by write_rect.
 
 # utility colors - pure hues, softened to match guide palette mood
-C_WHITE   = 0xDDDDDD      # soft white
-C_RED     = 0xBB3333      # soft red
-C_GREEN   = 0x33BB33      # soft green
-C_BLUE    = 0x3333BB      # soft blue
-C_CYAN    = 0x33BBBB      # soft cyan
+C_WHITE = 0xDDDDDD      # soft white
+C_RED = 0xBB3333      # soft red
+C_GREEN = 0x33BB33      # soft green
+C_BLUE = 0x3333BB      # soft blue
+C_CYAN = 0x33BBBB      # soft cyan
 C_MAGENTA = 0xBB33BB      # soft magenta
-C_YELLOW  = 0xBBBB33      # soft yellow
+C_YELLOW = 0xBBBB33      # soft yellow
 
 # project colors
-C_BG          = 0x323232  # charcoal
-C_FLOOR       = 0x404040  # dark grey
-C_WALL        = 0xDDDDDD  # silver
-C_ENTRY       = 0x2A4C73  # steel blue
-C_EXIT        = 0x2A4C73  # steel blue
-C_PATH        = 0x499847  # moss green
-C_PATTERN     = 0xF9A013  # amber
-C_PLAYER      = 0xA54900  # burnt orange
-C_UI_BG       = 0x1D1D1D  # jet black
-C_UI_ACTIVE   = 0xA54900  # burnt orange
+C_BG = 0x323232  # charcoal
+C_FLOOR = 0x404040  # dark grey
+C_WALL = 0xDDDDDD  # silver
+C_ENTRY = 0x2A4C73  # steel blue
+C_EXIT = 0x2A4C73  # steel blue
+C_PATH = 0x499847  # moss green
+C_PATTERN = 0xF9A013  # amber
+C_PLAYER = 0xA54900  # burnt orange
+C_UI_BG = 0x1D1D1D  # jet black
+C_UI_ACTIVE = 0xA54900  # burnt orange
 C_UI_INACTIVE = 0x2A4C73  # steel blue
 
 # =============================================================================
@@ -140,3 +143,31 @@ C_UI_INACTIVE = 0x2A4C73  # steel blue
 
 MLX_CHAR_W = 10    # pixels per character (horizontal)
 MLX_CHAR_H = 13  # pixels per character (vertical)
+
+# =============================================================================
+# MAZE SETTINGS
+# =============================================================================
+
+MAX_WIN_W, MAX_WIN_H = 1600, 900
+MARGIN = 20
+MIN_CELL, MAX_CELL = 8, 100
+MIN_WIN_W = 600          # keeps the text panel readable for tiny mazes
+TEXT_ROWS = 12
+TEXT_ROW_H = 18          # px per row (monospace ~12-14pt font)
+TEXT_PADDING = 10
+WALL_RATIO = 12
+WALL_MIN = 1
+WALL_MAX = 2
+TEXT_PANEL_H = TEXT_ROWS * TEXT_ROW_H + 2 * TEXT_PADDING   # 236
+BORDER = 2
+UI_W = 300
+UI_BTN_H = 40
+UI_BTN_W = 200
+UI_BTN_GAP = 10
+FLASH_DURATION = 0.15  # seconds a button stays highlighted after keypress
+DIRECTIONS = {            # letter: (dx, dy, wall bit that blocks the move)
+    "N": (0, -1, 0b0001),
+    "E": (1, 0, 0b0010),
+    "S": (0, 1, 0b0100),
+    "W": (-1, 0, 0b1000),
+}
