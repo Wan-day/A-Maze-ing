@@ -1,4 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
 venv/
-pyrightconfig.json
-.mypy_cache
-__pycache__
+.venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# IDE
+.vscode/
+
+# Type checking
+.mypy_cache/
+
+# Output file
+maze.txt
