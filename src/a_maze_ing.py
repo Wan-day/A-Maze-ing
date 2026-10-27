@@ -1,12 +1,12 @@
 import os
 import sys
 from typing import TypedDict
-from MazeGenerator import Maze
+from mazegen import MazeGenerator
 from errors import ConfigError
 
 
 class Config(TypedDict):
-    """Store the validated maze configuration values."""
+    """Describe the validated maze configuration structure."""
     WIDTH: int
     HEIGHT: int
     ENTRY: tuple[int, int]
@@ -194,7 +194,7 @@ def validate_config(config: dict[str, str]) -> Config:
     return validated_config
 
 
-def build_maze(config: Config, seed: int | None) -> tuple[Maze, list[
+def build_maze(config: Config, seed: int | None) -> tuple[MazeGenerator, list[
         tuple[int, int]]]:
     """Generate a maze from the configuration and write the output file.
 
@@ -205,7 +205,7 @@ def build_maze(config: Config, seed: int | None) -> tuple[Maze, list[
     Returns:
         The generated maze and its solution path.
     """
-    maze = Maze(
+    maze = MazeGenerator(
         config["WIDTH"],
         config["HEIGHT"],
         config["ENTRY"],
@@ -225,6 +225,9 @@ def build_maze(config: Config, seed: int | None) -> tuple[Maze, list[
 
 def main() -> None:
     """Load configuration, generate the maze, write and display the result."""
+    if sys.prefix == sys.base_prefix:
+        print("Use: python3 -m venv venv && source venv/bin/activate")
+        return
     if len(sys.argv) != 2:
         print("Usage: python3 a_maze_ing.py config.txt")
         return
@@ -237,16 +240,19 @@ def main() -> None:
 
         def regenerate() -> None:
             """Called by the renderer on SPACE: new random maze, same file."""
-            build_maze(config, None)
+            build_maze(config, config["SEED"])
 
         try:
             from renderer import MazeRenderer
         except ImportError as e:
             print(f"Graphical display unavailable ({e}); "
+                  f"Use: 'make install' to enable graphical display. "
                   f"maze written to '{config['OUTPUT_FILE']}'.")
             return
         MazeRenderer(config, regenerate).draw_maze()
     except ConfigError as e:
+        print(f"Configuration Error: {e}")
+    except ValueError as e:
         print(f"Configuration Error: {e}")
     except FileNotFoundError:
         print(f"Error: file '{config_file}' not found")

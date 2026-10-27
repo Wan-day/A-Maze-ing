@@ -1,4 +1,4 @@
-"""Parser for the maze output file written by ``Maze.write_output``.
+"""Parser for the maze output file written by 'MazeGenerator.write_output()'.
 
 File layout::
 

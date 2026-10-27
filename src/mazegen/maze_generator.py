@@ -1,5 +1,6 @@
+"""Reusable maze generation module with no project-specific dependencies."""
+
 import random
-from errors import ConfigError
 
 
 class Cell:
@@ -13,28 +14,53 @@ class Cell:
         self.visited = False
 
 
-class Maze:
-    """Represent a maze grid and provide generation and path utilities."""
+class MazeGenerator:
+    """Generate, inspect, solve, and export a maze.
+
+    Coordinates are ``(x, y)`` with the origin at the upper-left corner.
+    The generated cell objects are available through :attr:`grid`.
+    """
     def __init__(
-            self, width: int, height: int, entry: tuple[int, int],
-            exit: tuple[int, int]
+            self, width: int, height: int,
+            entry: tuple[int, int] | None = None,
+            exit: tuple[int, int] | None = None,
+            seed: int | None = None,
     ) -> None:
         """Initialize a maze with dimensions and entry/exit cells.
 
         Args:
             width: Number of cells in each row.
             height: Number of cells in each column.
-            entry: Entry coordinates as (x, y).
-            exit: Exit coordinates as (x, y).
+            entry: Entry coordinates as (x, y), defaults to the upper-left.
+            exit: Exit coordinates as (x, y), defaults to the lower-right.
+            seed: Optional seed for reproducible generation.
         """
+        if entry is None:
+            entry = (0, 0)
+        if exit is None:
+            exit = (width - 1, height - 1)
         self.width = width
         self.height = height
         self.entry = entry
         self.exit = exit
+        self.seed = seed
+        if width < 9 or height < 7:
+            raise ValueError("Maze dimensions must be at least 9 by 7")
+        for name, (x, y) in (("entry", entry), ("exit", exit)):
+            if not (0 <= x < width and 0 <= y < height):
+                raise ValueError(f"{name} coordinate is outside maze bounds")
+        if entry == exit:
+            raise ValueError("Entry and exit must be different")
         self.grid = [
             [Cell() for _ in range(width)]
             for _ in range(height)
         ]
+        self.maze = self.get_maze()
+        self.solution: list[tuple[int, int]] = []
+
+    def generate(self) -> None:
+        """Generate a perfect maze using the configured seed, if any."""
+        self.generate_perfect(self.seed)
 
     def cell_to_hex(self, cell: Cell) -> str:
         """Convert a cell wall configuration to one hexadecimal digit.
@@ -45,6 +71,13 @@ class Maze:
         Returns:
             A hexadecimal character representing the cell walls.
         """
+        return format(self.cell_to_int(cell), "x")
+
+    def cell_to_int(self, cell: Cell) -> int:
+        """Return a cell's wall configuration as a four-bit integer.
+
+        Bits 0 through 3 represent the north, east, south, and west walls.
+        """
         value = 0
         if cell.north:
             value |= 1
@@ -54,7 +87,19 @@ class Maze:
             value |= 4
         if cell.west:
             value |= 8
-        return format(value, "x")
+        return value
+
+    def get_maze(self) -> list[list[int]]:
+        """Return the maze structure as a new list of wall-mask rows.
+
+        Each cell integer uses bit 0 for north, bit 1 for east, bit 2 for
+        south, and bit 3 for west. The returned lists can be modified without
+        changing the generator's internal grid.
+        """
+        return [
+            [self.cell_to_int(cell) for cell in row]
+            for row in self.grid
+        ]
 
     def to_hex(self) -> list[str]:
         """Convert the entire maze to hexadecimal rows.
@@ -162,40 +207,9 @@ class Maze:
         path.reverse()
         return path
 
-    def is_reachable(self) -> bool:
-        """Check whether the exit is reachable from the entry.
-
-        Returns:
-            True if the exit is reachable, otherwise False.
-        """
-        stack = [self.entry]
-        visited = {self.entry}
-        while stack:
-            x, y = stack.pop()
-            if (x, y) == self.exit:
-                return True
-            cell = self.grid[y][x]
-            if not cell.north and y > 0:
-                neighbor = (x, y - 1)
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    stack.append(neighbor)
-            if not cell.east and x < self.width - 1:
-                neighbor = (x + 1, y)
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    stack.append(neighbor)
-            if not cell.south and y < self.height - 1:
-                neighbor = (x, y + 1)
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    stack.append(neighbor)
-            if not cell.west and x > 0:
-                neighbor = (x - 1, y)
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    stack.append(neighbor)
-        return False
+    def solve(self) -> list[tuple[int, int]]:
+        """Return the shortest path from entry to exit."""
+        return self.find_path()
 
     def remove_wall(self, x1: int, y1: int, x2: int, y2: int) -> None:
         """Remove the wall between two adjacent cells.
@@ -333,6 +347,8 @@ class Maze:
         Args:
             seed: Optional random seed for reproducible generation.
         """
+        if seed is None:
+            seed = self.seed
         self.generate_perfect(seed)
         pattern = self.get_pattern_42()
         blocked = set(pattern)
@@ -361,6 +377,8 @@ class Maze:
             x, y, neighbors = random.choice(candidates)
             nx, ny = random.choice(neighbors)
             self.remove_wall(x, y, nx, ny)
+        self.maze = self.get_maze()
+        self.solution = self.find_path()
 
     def generate_perfect(self, seed: int | None = None) -> None:
         """Generate a perfect maze using recursive backtracking.
@@ -369,16 +387,22 @@ class Maze:
             seed: Optional random seed for reproducible generation.
 
         Raises:
-            ConfigError: If entry or exit is inside the 42 pattern.
+            ValueError: If entry or exit is inside the 42 pattern.
         """
-        if seed is not None:
-            random.seed(seed)
+        if seed is None:
+            seed = self.seed
         pattern = self.get_pattern_42()
         blocked = set(pattern)
         if self.entry in blocked:
-            raise ConfigError("Entry cannot be inside 42 pattern")
+            raise ValueError("Entry cannot be inside 42 pattern")
         if self.exit in blocked:
-            raise ConfigError("Exit cannot be inside 42 pattern")
+            raise ValueError("Exit cannot be inside 42 pattern")
+        if seed is not None:
+            random.seed(seed)
+        self.grid = [
+            [Cell() for _ in range(self.width)]
+            for _ in range(self.height)
+        ]
         x, y = self.entry
         stack = [(x, y)]
         self.grid[y][x].visited = True
@@ -392,6 +416,8 @@ class Maze:
                 stack.append((nx, ny))
             else:
                 stack.pop()
+        self.maze = self.get_maze()
+        self.solution = self.find_path()
 
     def print_maze(self, path: list[tuple[int, int]]) -> None:
         """Print the maze and the solution path to the console.

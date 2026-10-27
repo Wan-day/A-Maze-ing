@@ -123,7 +123,7 @@ class MazeRenderer():
                         self.close_handler, None)
         self.m.mlx_hook(self.win_ptr, EVENT_MOUSE_PRESS, MASK_MOUSE_PRESS,
                         self.mouse_press_handler, None)
-        self.render_scene()
+        self.m.mlx_expose_hook(self.win_ptr, self.expose_handler, None)
         self.m.mlx_loop_hook(self.mlx_ptr, self.game_loop, None)
         self.m.mlx_loop(self.mlx_ptr)
         self.m.mlx_destroy_image(self.mlx_ptr, self.img_ptr)
@@ -154,6 +154,10 @@ class MazeRenderer():
             self.render_scene()
 
         return 0
+
+    def expose_handler(self, param: Any) -> None:
+        """Redraw the scene when MLX maps or exposes the window."""
+        self.render_scene()
 
     def str_color(self, color: int) -> int:
         """Convert 0xRRGGBB to 0xBBGGRR for mlx_string_put."""
