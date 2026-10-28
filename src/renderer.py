@@ -15,15 +15,17 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import mlx
 
-from config import (
+from mlx_config import (
     EVENT_KEY_PRESS, EVENT_KEY_RELEASE, EVENT_WINDOW_CLOSE,
     EVENT_MOUSE_PRESS,
     MASK_KEY_PRESS, MASK_KEY_RELEASE, MASK_NONE, MASK_MOUSE_PRESS,
     KEY_ESC, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN,
-    KEY_SPACE, KEY_C,
+    KEY_SPACE, KEY_C, KEY_V,
     C_WHITE, C_UI_BG, C_UI_ACTIVE, C_UI_INACTIVE,
     MARGIN, UI_W, UI_BTN_H, UI_BTN_W, UI_BTN_GAP, FLASH_DURATION,
     MLX_CHAR_W, MLX_CHAR_H,
+    POPUP_TIME, SPIN_DELAY, POPUP_W, POPUP_H, POPUP_BORDER,
+    SPIN_SQ, SPIN_GAP, POPUP_TEXT, SPIN_OFFSETS
 )
 from errors import ConfigError
 from maze_parser import MazeData, MazeFileParser
@@ -44,6 +46,7 @@ class Button:
         key: Keycode that triggers the same action (optional).
         deferred: Run the action on the next frame instead of immediately
             (use for slow actions, so the highlight shows first).
+        popup: Show the "generating" popup while this button's action runs.
         x, y, w, h: Rectangle in window pixels (set by make_buttons).
         flash_until: Highlight deadline; 0.0 means not highlighted.
     """
@@ -51,6 +54,7 @@ class Button:
     action: Callable[[], None]
     key: int | None = None
     deferred: bool = False
+    popup: bool = False
     x: int = 0
     y: int = 0
     w: int = 0
@@ -76,12 +80,17 @@ class MazeRenderer():
     def __init__(self, config: Config,
                  regenerate: Callable[[], None] | None = None):
         self.config: Config = config
+        self.path: bool = True
         self.layout: RenderConfig = RenderConfig.from_config(config)
         self.regenerate = regenerate
         self.parser = MazeFileParser()
         self.pending_action: Callable[[], None] | None = None
         self.theme_index: int = 0
         self.theme: Theme = THEMES[self.theme_index]
+        self.popup_active: bool = False
+        self.popup_start: float = 0.0
+        self.popup_until: float = 0.0   # 0.0 = timer not started yet
+        self.last_spin_step: int = -1
         self.buttons: list[Button] = self.make_buttons()
         self.maze: MazeData = self.load_maze()
         self.player_col: int = self.maze.entry[0]
@@ -136,9 +145,11 @@ class MazeRenderer():
         This is where deferred work actually runs. Flags set in key handlers
         are consumed here, one per frame, keeping handlers fast.
         Sequence for SPACE:
-          Frame N:   button pressed - pending_action set, highlight shown
-          Frame N+1: game_loop sees pending_action - action runs - redraw
-          Frame N+2: flash timer expires - highlight removed - redraw
+          Frame N:   button pressed - popup shown, pending_action set
+          Frame N+1: game_loop sees pending_action - action runs (maze is
+                     generated, popup timer starts) - redraw
+          Frame N+k: spinner advances every SPIN_DELAY seconds
+          Later:     popup timer expires - popup removed - new maze shown
         """
         if self.pending_action is not None:
             action, self.pending_action = self.pending_action, None
@@ -153,7 +164,26 @@ class MazeRenderer():
                 button.flash_until = 0.0
             self.render_scene()
 
+        if self.popup_active:
+            self.update_popup(now)
+
         return 0
+
+    def update_popup(self, now: float) -> None:
+        """Advance the popup: close it when its timer ends, else spin.
+
+        The scene is only redrawn when the spinner step changes, not every
+        frame, because a full redraw is expensive.
+        """
+        if self.popup_until and now >= self.popup_until:
+            self.popup_active = False
+            self.popup_until = 0.0
+            self.render_scene()
+            return
+        step = self.spinner_step(now)
+        if step != self.last_spin_step:
+            self.last_spin_step = step
+            self.render_scene()
 
     def expose_handler(self, param: Any) -> None:
         """Redraw the scene when MLX maps or exposes the window."""
@@ -320,10 +350,14 @@ class MazeRenderer():
 # COMPOSITOR LAYERS
 # =================
 
-    def draw_layer_floor(self) -> None:
-        """Layer 1: Fill window background, then all maze tile interiors."""
+    def draw_layer_background(self) -> None:
+        """Layer 0: Fill the whole window with the background colour."""
         self.write_rect(0, 0, self.layout.win_w, self.layout.win_h,
                         self.theme.bg)
+
+    def draw_layer_floor(self) -> None:
+        """Layer 1: Fill window background, then all maze tile interiors."""
+        self.draw_layer_background()
         for row in range(self.maze.rows):
             for col in range(self.maze.cols):
                 self.draw_tile(col, row, self.theme.floor)
@@ -357,8 +391,10 @@ class MazeRenderer():
         read them, so what you see is what you can click.
         """
         buttons = [
-            Button("Regenerate", self.do_regen, key=KEY_SPACE, deferred=True),
+            Button("Regenerate", self.do_regen, key=KEY_SPACE,
+                   deferred=True, popup=True),
             Button("Colors", self.next_theme, key=KEY_C),
+            Button("Path", self.toggle_path, key=KEY_V)
         ]
         x = self.layout.maze_w + (UI_W - UI_BTN_W) // 2
         y = self.layout.win_h // 2 + 10
@@ -376,6 +412,70 @@ class MazeRenderer():
             color = C_UI_ACTIVE if button.flash_until else C_UI_INACTIVE
             self.write_rect(button.x, button.y, button.w, button.h, color)
 
+# ================
+# POPUP + SPINNER
+# ================
+
+    def popup_box(self) -> tuple[int, int, int, int]:
+        """Return (x, y, w, h) of the popup, centred in the maze area."""
+        w = min(POPUP_W, self.layout.maze_w)
+        h = min(POPUP_H, self.layout.win_h)
+        x = (self.layout.maze_w - w) // 2
+        y = (self.layout.win_h - h) // 2
+        return x, y, w, h
+
+    def spinner_step(self, now: float) -> int:
+        """Return how many spinner steps have elapsed since the popup began.
+        """
+        return int((now - self.popup_start) / SPIN_DELAY)
+
+    def draw_spinner(self, cx: int, cy: int, step: int) -> None:
+        """Draw the 8-square ring spinner centred at (cx, cy).
+
+        The head square is white and the two squares behind it fade out,
+        which gives the impression of rotation.
+        """
+        pitch = SPIN_SQ + SPIN_GAP
+        head = step % 8
+        for i, (dx, dy) in enumerate(SPIN_OFFSETS):
+            behind = (head - i) % 8
+            if behind == 0:
+                color = C_WHITE
+            elif behind <= 2:
+                color = C_UI_ACTIVE
+            else:
+                color = C_UI_INACTIVE
+            self.write_rect(cx + dx * pitch - SPIN_SQ // 2,
+                            cy + dy * pitch - SPIN_SQ // 2,
+                            SPIN_SQ, SPIN_SQ, color)
+
+    def draw_layer_popup(self) -> None:
+        """Layer 8: Popup box with border and spinner (text comes later)."""
+        x, y, w, h = self.popup_box()
+        b = POPUP_BORDER
+        self.write_rect(x, y, w, h, C_UI_INACTIVE)               # border
+        self.write_rect(x + b, y + b, w - 2 * b, h - 2 * b, C_UI_BG)
+        step = self.spinner_step(time.time())
+        # Spinner sits in the upper part, leaving room for the text below.
+        self.draw_spinner(x + w // 2, y + (h - 30) // 2, step)
+
+    def draw_popup_labels(self) -> None:
+        """Draw the popup text. Must be called AFTER render()."""
+        x, y, w, h = self.popup_box()
+        text_w = len(POPUP_TEXT) * MLX_CHAR_W
+        dots = self.spinner_step(time.time()) % 4
+        # Always pad to the full length so the text does not shift around.
+        text = ("Generating" + "." * dots).ljust(len(POPUP_TEXT))
+        self.put_text(x + (w - text_w) // 2, y + h - MLX_CHAR_H - 14,
+                      C_WHITE, text)
+
+    def start_popup(self) -> None:
+        """Show the popup now. The close timer starts when generation ends."""
+        self.popup_active = True
+        self.popup_start = time.time()
+        self.popup_until = 0.0
+        self.last_spin_step = -1
+
     def put_text(self, x: int, y: int, color: int, text: str) -> None:
         """Draw text directly on the window (y is the top of the text)."""
         self.m.mlx_string_put(self.mlx_ptr, self.win_ptr, x, y,
@@ -389,10 +489,10 @@ class MazeRenderer():
         label_x = self.layout.maze_w + (UI_W - UI_BTN_W) // 2
         base_y = self.layout.win_h // 2
 
-        legend = (("ARROWS", "Move"), ("SPACE", "Regenerate"),
+        legend = (("ARROWS", "Move"), ("SPACE", "Regenerate"), ("V", "Path"),
                   ("C", "Colors"), ("ESC", "Quit"))
         for i, (key_name, description) in enumerate(legend):
-            y = base_y - 110 + i * 30
+            y = base_y - 140 + i * 30
             self.put_text(label_x, y, C_UI_INACTIVE, key_name)
             self.put_text(label_x + 100, y, C_WHITE, description)
 
@@ -411,15 +511,26 @@ class MazeRenderer():
 # ============
 
     def render_scene(self) -> None:
-        """Draw entire scene in layer order, render, then draw text labels."""
-        self.draw_layer_floor()
-        self.draw_layer_pattern()
-        self.draw_layer_path()
-        self.draw_layer_overlay()
-        self.draw_layer_player()
+        """Draw entire scene in layer order, render, then draw text labels.
+
+        While the popup is active the maze layers are skipped (the maze is
+        "not there yet") and the popup is drawn instead.
+        """
+        if self.popup_active:
+            self.draw_layer_background()
+            self.draw_layer_popup()
+        else:
+            self.draw_layer_floor()
+            self.draw_layer_pattern()
+            if (self.path):
+                self.draw_layer_path()
+            self.draw_layer_overlay()
+            self.draw_layer_player()
         self.draw_layer_ui()
         self.render()
         self.draw_ui_labels()
+        if self.popup_active:
+            self.draw_popup_labels()
 
 # =================
 # HANDLER METHODS
@@ -429,9 +540,12 @@ class MazeRenderer():
         """Handle key press events.
         keycode is the X11/XQuartz keycode of the pressed key.
         ESC exits the loop cleanly via mlx_loop_exit().
+        All other keys are ignored while the popup is showing.
         """
         if keycode == KEY_ESC:
             self.m.mlx_loop_exit(self.mlx_ptr)
+            return 0
+        if self.popup_active:
             return 0
         if (keycode == KEY_UP and self.in_bounds(self.player_col,
                                                  self.player_row - 1)
@@ -463,8 +577,10 @@ class MazeRenderer():
 
     def mouse_press_handler(self, button_id: int, x: int, y: int,
                             param: Any) -> int:
-        """Handle mouse presses: a left click on a button presses it."""
-        if button_id != 1:
+        """Handle mouse presses: a left click on a button presses it.
+        Clicks are ignored while the popup is showing.
+        """
+        if button_id != 1 or self.popup_active:
             return 0
         for button in self.buttons:
             if button.contains(x, y):
@@ -475,6 +591,8 @@ class MazeRenderer():
     def press(self, button: Button) -> None:
         """Single entry point for a button, whether clicked or keyed."""
         button.flash_until = time.time() + FLASH_DURATION
+        if button.popup:
+            self.start_popup()
         if button.deferred:
             self.pending_action = button.action
         else:
@@ -513,7 +631,10 @@ class MazeRenderer():
 
         The callback rewrites OUTPUT_FILE; the maze is then parsed again, so
         the window always shows what is in the file. On failure the current
-        maze stays on screen.
+        maze stays on screen and the popup is closed.
+
+        The popup close timer starts only AFTER generation succeeded, so the
+        popup is always visible for at least POPUP_TIME seconds.
         """
         try:
             if self.regenerate is not None:
@@ -521,8 +642,14 @@ class MazeRenderer():
             self.maze = self.load_maze()
         except Exception as e:
             print(f"Regeneration failed: {e}")
+            self.popup_active = False
+            self.popup_until = 0.0
             return
         self.player_col, self.player_row = self.maze.entry
+        self.popup_until = time.time() + POPUP_TIME
+
+    def toggle_path(self) -> None:
+        self.path = not self.path
 
 
 def main() -> None:

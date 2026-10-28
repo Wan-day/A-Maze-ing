@@ -171,3 +171,23 @@ DIRECTIONS = {            # letter: (dx, dy, wall bit that blocks the move)
     "S": (0, 1, 0b0100),
     "W": (-1, 0, 0b1000),
 }
+
+# =============================================================================
+# POPUP SETTINGS
+# =============================================================================
+
+# Popup / spinner settings (can be moved to config.py with the other
+# constants).
+POPUP_TIME = 0.8     # seconds the popup stays after the new maze is ready
+SPIN_DELAY = 0.08    # seconds per spinner step
+POPUP_W = 200        # popup box size in pixels
+POPUP_H = 120
+POPUP_BORDER = 2     # border thickness in pixels
+SPIN_SQ = 14         # size of one spinner square
+SPIN_GAP = 6         # gap between spinner squares
+POPUP_TEXT = "Generating..."
+
+# The 8 squares of the spinner: the ring around the centre of a 3x3 grid,
+# listed clockwise starting at the top-left.
+SPIN_OFFSETS = ((-1, -1), (0, -1), (1, -1), (1, 0),
+                (1, 1), (0, 1), (-1, 1), (-1, 0))
