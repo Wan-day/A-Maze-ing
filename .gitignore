@@ -1,9 +1,9 @@
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environment
+# Virtual environments
 venv/
 .venv/
 env/
@@ -15,8 +15,13 @@ env/
 # IDE
 .vscode/
 
-# Type checking
+# Mypy cache
 .mypy_cache/
 
-# Output file
-maze.txt
+# Package build artifacts
+/build/
+/dist/
+*.egg-info/
+
+# Generated maze output
+/output/*.txt
