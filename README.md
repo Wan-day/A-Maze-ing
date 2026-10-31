@@ -1,67 +1,147 @@
-# A-Maze-ing
+# Reusable mazegen package
 
-A project about generating labyrinths.
+The maze generator is also distributed as a standalone Python package named mazegen.
 
-## Reusable `mazegen` module
+The package can be built into a standard Python Wheel (.whl) and then installed and reused in other Python projects without copying the source files.
 
-The generator is also available as a standalone Python package. From the
-repository root, create a virtual environment and build the package from its
-source files with:
+## Building the package
+
+The package is configured using pyproject.toml. It uses setuptools as the build backend.
+
+The project should have the following structure:
+
+```text
+project/
+├── pyproject.toml
+├── README.md
+├── LICENSE.md
+└── src/
+    └── mazegen/
+        ├── __init__.py
+        └── maze_generator.py
+```
+
+### 1. Create a virtual environment
+
+From the project root:
+
+```bash
+python3 -m venv venv
+```
+
+Activate it:
+
+```bash
+source venv/bin/activate
+```
+
+### 2. Install the Python build tool
+
+```bash
+python -m pip install build
+```
+
+The build package is used to build distributable Python packages from pyproject.toml.
+
+### 3. Build the package
+
+Run:
+
+```bash
+python -m build --wheel
+```
+
+The build process creates a dist/ directory containing distribution files:
+
+```text
+dist/
+└── mazegen-1.0.0-py3-none-any.whl
+```
+
+The .whl file is the ready-to-install binary distribution of the package. It can be copied to another project and installed there.
+
+## Installing the package in another project
+
+Copy the wheel:
+
+```text
+mazegen-1.0.0-py3-none-any.whl
+```
+
+to the project where you want to use the generator.
+
+Create and activate a virtual environment if necessary:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install build
-python -m build
-cp dist/mazegen-1.0.0-py3-none-any.whl .
 ```
 
-Install the wheel in another project with
-`python -m pip install mazegen-1.0.0-py3-none-any.whl`.
+Install the wheel:
 
-Create a generator and generate a maze. The default entry is the upper-left
-cell and the default exit is the lower-right cell:
+```bash
+python -m pip install mazegen-1.0.0-py3-none-any.whl
+```
+
+After installation, the package can be imported normally:
+
+```python
+from mazegen import MazeGenerator
+```
+
+You do not need to copy maze_generator.py into the new project.
+
+## Basic usage
+
+Create a generator:
 
 ```python
 from mazegen import MazeGenerator
 
-generator = MazeGenerator(width=15, height=11)
-generator.generate()
-
-# Cell objects, including their north/east/south/west wall flags.
-grid = generator.grid
-
-# Ordered (x, y) coordinates from entry to exit.
-solution = generator.find_path()
-# Equivalent interfaces:
-solution = generator.solution
-solution = generator.solve()
-
-# Integer wall masks, one row per maze row.
-maze = generator.maze
-# Equivalent: maze = generator.get_maze()
-```
-
-Pass custom dimensions and a seed to the constructor:
-
-```python
 generator = MazeGenerator(
-    width=20,
-    height=20,
+    width=15,
+    height=11,
+    entry=(0,0),
+    exit_=(9,9),
     seed=42,
 )
-generator.generate()
 ```
 
-You can also pass `entry=(x, y)` and `exit=(x, y)` to choose different
-endpoints. Dimensions must be at least 9 by 7 to fit the protected 42 pattern.
-Use `generate_imperfect()` for an imperfect maze. A seed makes repeated
-generation reproducible; omit it for a fresh random maze.
+Generate a perfect maze:
 
-`generator.maze` contains rows of integer wall masks, and
-`generator.get_maze()` returns a copy of that structure. Bits 0, 1, 2, and 3
-indicate north, east, south, and west walls. The detailed `generator.grid`
-representation is also available as `Cell` objects. These structures are
-independent of the text output format.
+```python
+generator.generate_perfect()
+```
 
-The distribution includes the MIT license in `LICENSE.md`.
+Find a path from the entry to the exit:
+
+```python
+path = generator.find_path()
+```
+
+Print the maze:
+
+```python
+generator.print_maze(path)
+```
+
+A complete example:
+
+```python
+from mazegen import MazeGenerator
+
+
+generator = MazeGenerator(
+    width=15,
+    height=11,
+    entry=(0,0),
+    exit_=(9,9),
+    seed=42,
+)
+
+generator.generate_perfect()
+
+path = generator.find_path()
+
+generator.print_maze(path)
+```

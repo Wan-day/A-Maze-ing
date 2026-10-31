@@ -23,7 +23,7 @@ class MazeGenerator:
     def __init__(
             self, width: int, height: int,
             entry: tuple[int, int] | None = None,
-            exit: tuple[int, int] | None = None,
+            exit_: tuple[int, int] | None = None,
             seed: int | None = None,
     ) -> None:
         """Initialize a maze with dimensions and entry/exit cells.
@@ -32,35 +32,37 @@ class MazeGenerator:
             width: Number of cells in each row.
             height: Number of cells in each column.
             entry: Entry coordinates as (x, y), defaults to the upper-left.
-            exit: Exit coordinates as (x, y), defaults to the lower-right.
+            exit_: Exit coordinates as (x, y), defaults to the lower-right.
             seed: Optional seed for reproducible generation.
         """
         if entry is None:
             entry = (0, 0)
-        if exit is None:
-            exit = (width - 1, height - 1)
+        if exit_ is None:
+            exit_ = (width - 1, height - 1)
+        if width < 1 or height < 1:
+            raise ValueError("Maze dimensions must be greater than 0")
+        for name, (x, y) in (("entry", entry), ("exit", exit_)):
+            if not (0 <= x < width and 0 <= y < height):
+                raise ValueError(f"{name} coordinate is outside maze bounds")
+        if entry == exit_:
+            raise ValueError("Entry and exit must be different")
+        if width < 9 or height < 7:
+            print("42 was omitted because the maze is too small")
         self.width = width
         self.height = height
         self.entry = entry
-        self.exit = exit
+        self.exit = exit_
         self.seed = seed
-        if width < 9 or height < 7:
-            raise ValueError("Maze dimensions must be at least 9 by 7")
-        for name, (x, y) in (("entry", entry), ("exit", exit)):
-            if not (0 <= x < width and 0 <= y < height):
-                raise ValueError(f"{name} coordinate is outside maze bounds")
-        if entry == exit:
-            raise ValueError("Entry and exit must be different")
         self.grid = [
             [Cell() for _ in range(width)]
             for _ in range(height)
         ]
-        self.maze = self.get_maze()
+        self.maze: list[list[int]] = self.get_maze()
         self.solution: list[tuple[int, int]] = []
 
     def generate(self) -> None:
-        """Generate a perfect maze using the configured seed, if any."""
-        self.generate_perfect(self.seed)
+        """Generate an imperfect maze using the configured seed, if any."""
+        self.generate_imperfect(self.seed)
 
     def cell_to_hex(self, cell: Cell) -> str:
         """Convert a cell wall configuration to one hexadecimal digit.
@@ -211,7 +213,10 @@ class MazeGenerator:
         """Return the shortest path from entry to exit."""
         return self.find_path()
 
-    def remove_wall(self, x1: int, y1: int, x2: int, y2: int) -> None:
+    def remove_wall(
+        self, x1: int, y1: int, x2: int, y2: int,
+        blocked: set[tuple[int, int]],
+    ) -> None:
         """Remove the wall between two adjacent cells.
 
         Cells belonging to the 42 pattern are protected.
@@ -221,9 +226,10 @@ class MazeGenerator:
             y1: Y coordinate of the first cell.
             x2: X coordinate of the second cell.
             y2: Y coordinate of the second cell.
+            blocked: Coordinates that must remain closed, such as the 42
+                pattern cells.
         """
-        pattern = self.get_pattern_42()
-        if (x1, y1) in pattern or (x2, y2) in pattern:
+        if (x1, y1) in blocked or (x2, y2) in blocked:
             return
         current = self.grid[y1][x1]
         neighbor = self.grid[y2][x2]
@@ -255,7 +261,13 @@ class MazeGenerator:
         ]
         pattern_height = len(pattern)
         pattern_width = len(pattern[0])
-        start_x = (self.width - pattern_width) // 2
+        # Pattern plus a one-cell margin must fit, otherwise 42 is omitted.
+        if (self.width < pattern_width + 2
+                or self.height < pattern_height + 2):
+            return {}
+        # Rounding up moves the pattern towards the right edge when the
+        # width is even, so the maze centre never falls inside the "42".
+        start_x = (self.width - pattern_width + 1) // 2
         start_y = (self.height - pattern_height) // 2
         result = {}
         for y in range(pattern_height):
@@ -352,31 +364,28 @@ class MazeGenerator:
         self.generate_perfect(seed)
         pattern = self.get_pattern_42()
         blocked = set(pattern)
-        while True:
-            dead_ends = self.get_dead_ends(blocked)
-            candidates = []
-            for x, y in dead_ends:
-                cell = self.grid[y][x]
-                neighbors = []
-                if y > 0 and (x, y - 1) not in blocked and cell.north:
-                    neighbors.append((x, y - 1))
-                if (x < self.width - 1
-                        and (x + 1, y) not in blocked
-                        and cell.east):
-                    neighbors.append((x + 1, y))
-                if (y < self.height - 1
-                        and (x, y + 1) not in blocked
-                        and cell.south):
-                    neighbors.append((x, y + 1))
-                if x > 0 and (x - 1, y) not in blocked and cell.west:
-                    neighbors.append((x - 1, y))
-                if neighbors:
-                    candidates.append((x, y, neighbors))
-            if not candidates:
-                break
-            x, y, neighbors = random.choice(candidates)
-            nx, ny = random.choice(neighbors)
-            self.remove_wall(x, y, nx, ny)
+        dead_ends = self.get_dead_ends(blocked)
+        random.shuffle(dead_ends)
+        for x, y in dead_ends:
+            if self.passage_count(x, y) != 1:
+                continue
+            cell = self.grid[y][x]
+            neighbors = []
+            if y > 0 and (x, y - 1) not in blocked and cell.north:
+                neighbors.append((x, y - 1))
+            if (x < self.width - 1
+                    and (x + 1, y) not in blocked
+                    and cell.east):
+                neighbors.append((x + 1, y))
+            if (y < self.height - 1
+                    and (x, y + 1) not in blocked
+                    and cell.south):
+                neighbors.append((x, y + 1))
+            if x > 0 and (x - 1, y) not in blocked and cell.west:
+                neighbors.append((x - 1, y))
+            if neighbors:
+                nx, ny = random.choice(neighbors)
+                self.remove_wall(x, y, nx, ny, blocked)
         self.maze = self.get_maze()
         self.solution = self.find_path()
 
@@ -411,7 +420,7 @@ class MazeGenerator:
             neighbors = self.get_neighbors(x, y, blocked)
             if neighbors:
                 nx, ny = random.choice(neighbors)
-                self.remove_wall(x, y, nx, ny)
+                self.remove_wall(x, y, nx, ny, blocked)
                 self.grid[ny][nx].visited = True
                 stack.append((nx, ny))
             else:
