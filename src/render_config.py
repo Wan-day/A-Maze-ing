@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from config import (
+from mlx_config import (
     MAX_WIN_W, MAX_WIN_H, MARGIN, MIN_CELL, MAX_CELL, UI_W,
     WALL_RATIO, WALL_MIN, WALL_MAX,
 )

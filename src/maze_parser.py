@@ -14,7 +14,7 @@ Bit layout of a hex digit: 0 = North, 1 = East, 2 = South, 3 = West
 
 from dataclasses import dataclass
 
-from config import DIRECTIONS
+from mlx_config import DIRECTIONS
 from errors import ConfigError
 
 CLOSED_CELL = 0xF
