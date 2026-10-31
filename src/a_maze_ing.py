@@ -150,14 +150,14 @@ def validate_config(config: dict[str, str]) -> Config:
         if key not in config or not config[key]:
             raise ConfigError(f"{key}: missing mandatory configuration key")
     width = parse_int(config, "WIDTH")
-    if width < 9:
+    if width < 1:
         raise ConfigError(
-            f"WIDTH: must be greater than or equal to 9, got {width}"
+            f"WIDTH: must be greater than 0, got {width}"
         )
     height = parse_int(config, "HEIGHT")
-    if height < 7:
+    if height < 1:
         raise ConfigError(
-            f"HEIGHT: must be greater than or equal to 7, got {height}"
+            f"HEIGHT: must be greater than 0, got {height}"
         )
     entry_coord = parse_coordinate(config["ENTRY"], "ENTRY")
     exit_coord = parse_coordinate(config["EXIT"], "EXIT")
@@ -239,9 +239,11 @@ def main() -> None:
         maze.print_maze(path)
 
         def regenerate() -> None:
-            """Called by the renderer on SPACE: new random maze, same file."""
-            build_maze(config, config["SEED"])
+            """Called by the renderer on SPACE to rebuild the maze.
 
+            A fixed SEED recreates it; without SEED, a new maze is generated.
+            """
+            build_maze(config, config["SEED"])
         try:
             from renderer import MazeRenderer
         except ImportError as e:
