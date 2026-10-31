@@ -149,6 +149,8 @@ MLX_CHAR_H = 13  # pixels per character (vertical)
 # =============================================================================
 
 MAX_WIN_W, MAX_WIN_H = 1600, 900
+MAX_MAZE_W, MAX_MAZE_H = 120, 120
+MAX_MAZE = 160
 MARGIN = 20
 MIN_CELL, MAX_CELL = 8, 100
 MIN_WIN_W = 600          # keeps the text panel readable for tiny mazes

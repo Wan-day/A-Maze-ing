@@ -62,5 +62,6 @@ class RenderConfig:
         win_w = maze_w + UI_W
         # 300 keeps the labels visible on tiny mazes
         win_h = max(cell * height + 2 * MARGIN, 300)
+
         return cls(cell_size=cell, wall_size=wall, maze_w=maze_w,
                    win_w=win_w, win_h=win_h)
