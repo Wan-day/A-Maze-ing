@@ -17,7 +17,7 @@ import mlx
 
 from mlx_config import (
     EVENT_KEY_PRESS, EVENT_KEY_RELEASE, EVENT_WINDOW_CLOSE,
-    EVENT_MOUSE_PRESS,
+    EVENT_MOUSE_PRESS, MAX_MAZE_H, MAX_MAZE_W, MAX_MAZE,
     MASK_KEY_PRESS, MASK_KEY_RELEASE, MASK_NONE, MASK_MOUSE_PRESS,
     KEY_ESC, KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN,
     KEY_SPACE, KEY_C, KEY_V,
@@ -118,6 +118,12 @@ class MazeRenderer():
         if (maze.cols, maze.rows) != (self.config["WIDTH"],
                                       self.config["HEIGHT"]):
             raise ConfigError("Maze file size does not match WIDTH/HEIGHT")
+        if (maze.cols > MAX_MAZE_W or maze.rows > MAX_MAZE_H):
+            raise ConfigError("Maze is too big to be rendered. "
+                              "Max WIDTH/HEIGHT 120/120")
+        if (maze.cols + maze.rows > MAX_MAZE):
+            raise ConfigError("Maze is too big to be rendered. "
+                              "Max sum of WIDTH/HEIGHT is 160")
         if (maze.entry, maze.exit) != (self.config["ENTRY"],
                                        self.config["EXIT"]):
             raise ConfigError("Maze file entry/exit does not match config")
